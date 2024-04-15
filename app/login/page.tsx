@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link";
 import React from "react";
-import userRouter from "next/navigation";
 import { useRouter } from "next/navigation";
 import { APIURL } from "../Constants";
 // import {axios} from "axios";
