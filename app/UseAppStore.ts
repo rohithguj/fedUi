@@ -18,11 +18,15 @@ const defaultStates: States = {
 
 // Define types for actions
 interface Actions {
+  setDataOnLogin: (username: string, password: string, userId: number) => void;
 }
 
 // Create and export the store
 const useAppStore = create<States & Actions>((set) => ({
   ...defaultStates,
+  setDataOnLogin: (username, password, userId) => {
+    set({ username, password, userId, loggedIn: true});
+  },
 }));
 
 export default useAppStore;

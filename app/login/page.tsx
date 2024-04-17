@@ -3,6 +3,7 @@ import Link from "next/link";
 import React from "react";
 import { useRouter } from "next/navigation";
 import { APIURL } from "../Constants";
+import useAppStore from "../UseAppStore";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -11,7 +12,9 @@ export default function LoginPage() {
         password: ''
     })
 
-    const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  
+  const [setDataOnLogin] = useAppStore((s) => [s.setDataOnLogin]);
 
     const onLogin = async () => {
         try {
@@ -33,6 +36,7 @@ export default function LoginPage() {
             const responseData = await response.json();
             console.log("Signup success", responseData);
             router.push("/");
+            setDataOnLogin(responseData.username, responseData.password, responseData.userId);
           } else {
             const errorData = await response.json();
             console.log("Signup failed", errorData);
@@ -73,7 +77,7 @@ export default function LoginPage() {
         >
           Login
         </button>
-        Don`&apos;`t have an account?
+        Don&apos;t have an account?
         <Link href="/signup">SignUp</Link>
       </div>
     );
