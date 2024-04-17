@@ -3,7 +3,7 @@ import Link from "next/link";
 import React from "react";
 import { useRouter } from "next/navigation";
 import { APIURL } from "../Constants";
-// import {axios} from "axios";
+
 export default function LoginPage() {
     const router = useRouter();
     const [user, setUser] = React.useState({
@@ -73,7 +73,7 @@ export default function LoginPage() {
         >
           Login
         </button>
-        Don't have an account?
+        Don`&apos;`t have an account?
         <Link href="/signup">SignUp</Link>
       </div>
     );
