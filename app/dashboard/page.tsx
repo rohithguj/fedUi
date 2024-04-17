@@ -64,7 +64,7 @@ const Dashboard = () => {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.heading}>🌌 Emotions Dashboard 🌌</h1>
+      <h1 style={styles.heading}>Emotions Dashboard</h1>
       <div style={styles.periodSelection}>
         <h2 style={styles.periodHeading}>Select Time Period:</h2>
         <div style={styles.buttonContainer}>
