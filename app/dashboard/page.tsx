@@ -1,81 +1,210 @@
-"use client"
-import React, { useState } from 'react';
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+"use client";
+import React, { useEffect, useState } from "react";
+import {
+  PieChart,
+  Pie,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
+import useAppStore from "../UseAppStore";
+import { APIURL } from "../Constants";
+import { useRouter } from "next/router";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const Dashboard = () => {
-  const [emotionsData, setEmotionsData] = useState([]);
-  const [selectedPeriod, setSelectedPeriod] = useState('');
-  const [selectedYearRange, setSelectedYearRange] = useState('fullYear');
+  // const router = useRouter();
 
-  const fetchEmotionsData = async (period) => {
+  // useEffect(() => {
+  //   if (!loggedIn) router.push("/");
+  // }, []);
+
+  const genAI = new GoogleGenerativeAI(
+    "AIzaSyA5Cew4ozSJTEh34fzwt5TG3NLQBF9djDY"
+  );
+  const [emotionsData, setEmotionsData] = useState([]);
+  const [selectedPeriod, setSelectedPeriod] = useState("");
+  const [selectedYearRange, setSelectedYearRange] = useState("fullYear");
+  const [resp, setResponse] = useState("");
+  const [loggedIn, user_id, username, password] = useAppStore((s) => [
+    s.loggedIn,
+    s.userId,
+    s.username,
+    s.password,
+  ]);
+
+    function formatResponse(text: string) {
+      // Replace '****' with bold text and '***' with italic text
+      const formattedText = text
+        .replace(/\*\*\*\*/g, "<strong>") // Replace '****' with opening bold tag
+        .replace(/\*\*\*/g, "<em>") // Replace '***' with opening italic tag
+        .replace(/\*\*/g, "</strong>") // Replace '**' with closing bold tag
+        .replace(/\*/g, "</em>") // Replace '*' with closing italic tag
+        .replace(/\n/g, "<br>"); // Replace newline characters with <br> tags
+
+      return formattedText;
+    }
+
+  const handleGenAi = async (emotionData: string, duration: string) => {
+    // Handle sending input value
+    // setLoading(true);
     try {
-      let timeRange = '';
-      switch(period) {
-        case 'today':
-          timeRange = 'today';
+      const emotionDataString = JSON.stringify(emotionData);
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+      const prompt = `This has been my emotion lately ${emotionDataString} over the duration ${duration} please suggest me some good color and hex color for the lighting and also give me some good music suggestions `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      console.log(text);
+      const formattedText = formatResponse(text);
+      console.log(formattedText);
+      setResponse(formattedText);
+    } catch (error) {
+      console.error("Error:", error);
+      return "Something went wrong. Please try again.";
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+  const transformDataForPieChart = (data: { [s: string]: unknown; } | ArrayLike<unknown>) => {
+    return Object.entries(data)
+      .filter(([emotion, percentage]) => percentage !== 0) // Filter out emotions with percentage 0
+      .map(([emotion, percentage]) => ({
+        name: emotion,
+        value: percentage,
+      }));
+  };
+
+  const fetchEmotionsData = async (period: string) => {
+    try {
+      let start = "";
+      let end = "";
+      switch (period) {
+        case "today":
+          start = new Date().toISOString().slice(0, 10) + " 00:00:00";
+          end = new Date().toISOString().slice(0, 10) + " 23:59:59";
           break;
-        case 'yesterday':
-          timeRange = 'yesterday';
+        case "yesterday":
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          start = yesterday.toISOString().slice(0, 10) + " 00:00:00";
+          end = yesterday.toISOString().slice(0, 10) + " 23:59:59";
           break;
-        case 'lastWeek':
-          timeRange = 'lastWeek';
+        case "lastWeek":
+          const lastWeek = new Date();
+          lastWeek.setDate(lastWeek.getDate() - 7);
+          start = lastWeek.toISOString().slice(0, 10) + " 00:00:00";
+          end = new Date().toISOString().slice(0, 10) + " 23:59:59";
           break;
-        case 'lastYear':
-          timeRange = selectedYearRange === 'fullYear' ? 'lastYearFull' : 'lastYearPartial';
+        case "lastYear":
+          // Assuming selectedYearRange is a state or variable holding the selected year range
+          start =
+            selectedYearRange === "fullYear"
+              ? "lastYearFullstart"
+              : "lastYearPartialstart";
+          end =
+            selectedYearRange === "fullYear"
+              ? "lastYearFullend"
+              : "lastYearPartialend";
           break;
-        case 'lastMonth':
+        case "lastMonth":
           const lastMonth = new Date();
           lastMonth.setMonth(lastMonth.getMonth() - 1);
-          timeRange = lastMonth.toISOString().slice(0, 7); 
+          start = lastMonth.toISOString().slice(0, 7) + "-01 00:00:00";
+          const lastMonthEnd = new Date(
+            lastMonth.getFullYear(),
+            lastMonth.getMonth() + 1,
+            0
+          );
+          end = lastMonthEnd.toISOString().slice(0, 10) + " 23:59:59";
           break;
         default:
-          throw new Error('Invalid period');
+          throw new Error("Invalid period");
       }
-      console.log('Fetching data for period:', timeRange);
-      const response = await fetch(`/api/emotions/${timeRange}`);
+      console.log("Fetching data for period:", { user_id, start, end });
+      const response = await fetch(`${APIURL}/get-data`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user_id as number,
+          username,
+          password,
+          start,
+          end,
+        }),
+      });
       if (!response.ok) {
-        throw new Error('Failed to fetch emotions data');
+        throw new Error("Failed to fetch emotions data");
       }
       const data = await response.json();
-      console.log('Fetched data:', data);
+      console.log("Fetched data:", data);
+      handleGenAi(data, period);
       setEmotionsData(data);
     } catch (error) {
       console.error(error);
-      
     }
   };
-  
 
-  const handlePeriodSelect = (period) => {
+  const handlePeriodSelect = (period: React.SetStateAction<string>) => {
     setSelectedPeriod(period);
     fetchEmotionsData(period);
   };
 
-  const handleYearRangeSelect = (range) => {
+  const handleYearRangeSelect = (range: React.SetStateAction<string>) => {
     setSelectedYearRange(range);
-    if (range === 'fullYear') {
-      fetchEmotionsData('lastYearFull');
+    if (range === "fullYear") {
+      fetchEmotionsData("lastYearFull");
     } else {
-      fetchEmotionsData('lastYearPartial');
+      fetchEmotionsData("lastYearPartial");
     }
   };
 
-  
-
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Emotions Dashboard</h1>
-      <div style={styles.periodSelection}>
-        <h2 style={styles.periodHeading}>Select Time Period:</h2>
-        <div style={styles.buttonContainer}>
-          <button className="periodButton" style={styles.button} onClick={() => handlePeriodSelect('today')}>Today</button>
-          <button className="periodButton" style={styles.button} onClick={() => handlePeriodSelect('yesterday')}>Yesterday</button>
-          <button className="periodButton" style={styles.button} onClick={() => handlePeriodSelect('lastWeek')}>Last Week</button>
-          <button className="periodButton" style={styles.button} onClick={() => handlePeriodSelect('lastYear')}>Last Year</button>
-          <button className="periodButton" style={styles.button} onClick={() => handlePeriodSelect('lastMonth')}>Last Month</button>
+    <div className="flex flex-col items-center justify-center min-h-screen py-2 ">
+      <div className="text-4xl fonrt-bold py-5">Emotions Dashboard</div>
+      <div className="w-3/5">
+        <div className="flex justify-between py-10">
+          <button
+            className="bg-gray-700 rounded-lg p-1"
+            onClick={() => handlePeriodSelect("today")}
+          >
+            Today
+          </button>
+          <button
+            className="bg-gray-700 rounded-lg p-1"
+            onClick={() => handlePeriodSelect("yesterday")}
+          >
+            Yesterday
+          </button>
+          <button
+            className="bg-gray-700 rounded-lg p-1"
+            onClick={() => handlePeriodSelect("lastWeek")}
+          >
+            Last Week
+          </button>
+          <button
+            className="bg-gray-700 rounded-lg p-1"
+            onClick={() => handlePeriodSelect("lastMonth")}
+          >
+            Last Month
+          </button>
+          <button
+            className="bg-gray-700 rounded-lg p-1"
+            onClick={() => handlePeriodSelect("lastYear")}
+          >
+            Last Year
+          </button>
         </div>
       </div>
-      {selectedPeriod === 'lastYear' && (
+      {/* {selectedPeriod === 'lastYear' && (
         <div style={styles.yearRangeSelection}>
           <h2 style={styles.yearRangeHeading}>Select Year Range:</h2>
           <div style={styles.buttonContainer}>
@@ -83,110 +212,38 @@ const Dashboard = () => {
             <button className={`yearRangeButton ${selectedYearRange === 'partialYear' ? 'selected' : ''}`} style={styles.button} onClick={() => handleYearRangeSelect('partialYear')}>Entire Year</button>
           </div>
         </div>
-      )}
+      )} */}
       {selectedPeriod && (
-        <div style={styles.chartContainer}>
-          <div style={styles.chart}>
-            <h2 style={styles.chartHeading}>{`${selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)}'s Emotions`}</h2>
+        <div className="flex justify-between gap-20">
+          <div>
+            <h2>{`${
+              selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)
+            }'s Emotions`}</h2>
             <PieChart width={400} height={400}>
-              <Pie dataKey="value" data={emotionsData} nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#03a9f4" label />
+              <Pie
+                data={transformDataForPieChart(emotionsData)}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                fill="#03a9f4"
+                label={({ name, percent }) =>
+                  `${name}: ${(percent * 100).toFixed()}%`
+                }
+              />
               <Tooltip />
             </PieChart>
           </div>
-          <div style={styles.chart}>
-            <BarChart width={600} height={400} data={emotionsData}>
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" fill="#f44336" />
-            </BarChart>
+          <div>
+            {resp !== "" && (
+              <div dangerouslySetInnerHTML={{ __html: resp }}></div>
+            )}
           </div>
         </div>
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    fontFamily: 'Arial, sans-serif',
-    padding: '20px',
-    backgroundColor: '#121212',
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    textAlign: 'center',
-  },
-  heading: {
-    fontSize: '48px',
-    color: '#03a9f4',
-    marginBottom: '30px',
-    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.2)',
-  },
-  periodSelection: {
-    marginBottom: '30px',
-  },
-  periodHeading: {
-    fontSize: '24px',
-    color: '#03a9f4',
-  },
-  buttonContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: '10px',
-  },
-  button: {
-    margin: '0 10px',
-    padding: '10px 20px',
-    borderRadius: '25px',
-    backgroundColor: '#4caf50',
-    color: '#fff',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
-    transition: 'transform 0.3s, box-shadow 0.3s',
-  },
-  chartContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: '30px',
-  },
-  chart: {
-    width: '45%',
-    padding: '20px',
-    backgroundColor: '#212121',
-    borderRadius: '20px',
-    boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
-    transition: 'transform 0.3s, box-shadow 0.3s',
-    overflow: 'hidden',
-  },
-  chartHeading: {
-    fontSize: '24px',
-    color: '#03a9f4',
-    marginBottom: '20px',
-    textAlign: 'center',
-  },
-  yearRangeSelection: {
-    marginBottom: '30px',
-  },
-  yearRangeHeading: {
-    fontSize: '20px',
-    color: '#03a9f4',
-  },
-  useClient: {
-    position: 'absolute',
-    bottom: '20px',
-    right: '20px',
-    color: '#fff',
-    fontSize: '14px',
-  },
 };
 
 export default Dashboard;
