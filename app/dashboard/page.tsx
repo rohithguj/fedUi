@@ -23,7 +23,7 @@ const Dashboard = () => {
   // }, []);
 
   const genAI = new GoogleGenerativeAI(
-    "AIzaSyA5Cew4ozSJTEh34fzwt5TG3NLQBF9djDY"
+    "AIzaSyAr3w6LHAMHLxKRPNDQhofaqlSlGLwidYw"
   );
   const [emotionsData, setEmotionsData] = useState([]);
   const [selectedPeriod, setSelectedPeriod] = useState("");
@@ -155,7 +155,7 @@ const Dashboard = () => {
 
   const handlePeriodSelect = (period: React.SetStateAction<string>) => {
     setSelectedPeriod(period);
-    fetchEmotionsData(period);
+    fetchEmotionsData(period as string);
   };
 
   const handleYearRangeSelect = (range: React.SetStateAction<string>) => {
